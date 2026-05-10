@@ -1,0 +1,5 @@
+python-telegram-bot==20.7
+httpx[http2]>=0.24
+yt-dlp>=2024.1.1
+Pillow>=10.0.0
+pymongo>=4.6.0
