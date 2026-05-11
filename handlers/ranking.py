@@ -199,3 +199,243 @@ async def ranking_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
         else:
             await query.message.reply_text(text, parse_mode="HTML", reply_markup=kb)
+
+
+# ── New ranking commands ───────────────────────────────────────────────────────
+
+async def rankings(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Alias for /ranking."""
+    await ranking(update, context)
+
+
+async def topgame(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+    rows = db.get_top_scores(chat_id, limit=10)
+    if not rows:
+        await update.message.reply_text("No game scores yet. Play /trivia to earn points!")
+        return
+    medals = ["🥇", "🥈", "🥉"]
+    lines  = []
+    for i, row in enumerate(rows):
+        m    = medals[i] if i < 3 else f"{i+1}."
+        name = row.get("first_name") or row.get("username") or f"User{row.get('user_id','')}"
+        pts  = row.get("count", row.get("score", 0))
+        lines.append(f"{m} <b>{name}</b> — {pts} pts")
+    await update.message.reply_text(
+        f"🎮 <b>Game Leaderboard</b>\n━━━━━━━━━━━━━━━━\n\n" + "\n".join(lines),
+        parse_mode="HTML"
+    )
+
+
+async def topusers(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        all_ids = db.get_all_user_ids()
+        await update.message.reply_text(
+            f"👥 <b>Global Users</b>\n\nTotal registered users: <b>{len(all_ids):,}</b>\n\n"
+            "Use /ranking to see this group's top members.",
+            parse_mode="HTML"
+        )
+    except Exception:
+        await update.message.reply_text(
+            "👥 <b>Global Users</b>\n\nUse /ranking for this group's leaderboard.",
+            parse_mode="HTML"
+        )
+
+
+async def topgroups(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        all_chats = db.get_all_chat_ids()
+        await update.message.reply_text(
+            f"🌐 <b>Global Groups</b>\n\nBot is active in <b>{len(all_chats):,}</b> chats.\n\n"
+            "Use /groupstats for this group's stats.",
+            parse_mode="HTML"
+        )
+    except Exception:
+        await update.message.reply_text(
+            "🌐 <b>Global Groups</b>\n\nCould not fetch global stats.",
+            parse_mode="HTML"
+        )
+
+
+async def profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user    = update.effective_user
+    chat_id = update.effective_chat.id
+    uid     = user.id
+    name    = user.first_name or user.username or f"User{uid}"
+
+    # Get message count for this chat
+    rows = db.get_ranking(chat_id, limit=500)
+    rank = None
+    msgs = 0
+    for i, row in enumerate(rows):
+        if row.get("user_id") == uid:
+            rank = i + 1
+            msgs = row.get("message_count", 0)
+            break
+
+    # Get trivia score
+    score_rows = db.get_top_scores(chat_id, limit=500)
+    trivia_pts = 0
+    trivia_rank = None
+    for i, row in enumerate(score_rows):
+        if row.get("user_id") == uid:
+            trivia_pts  = row.get("count", row.get("score", 0))
+            trivia_rank = i + 1
+            break
+
+    # Get collection count
+    try:
+        collection = db.get_collection(uid)
+        col_count  = len(collection) if collection else 0
+    except Exception:
+        col_count = 0
+
+    # Get coin balance
+    try:
+        coins = db.add_rb_coins(uid, 0)
+    except Exception:
+        coins = 0
+
+    rank_str   = f"#{rank}" if rank else "Unranked"
+    t_rank_str = f"#{trivia_rank}" if trivia_rank else "Unranked"
+
+    await update.message.reply_text(
+        f"👤 <b>Profile: {name}</b>\n"
+        f"━━━━━━━━━━━━━━━━\n\n"
+        f"🆔 ID: <code>{uid}</code>\n"
+        f"💬 Messages in group: <b>{msgs:,}</b> (Rank {rank_str})\n"
+        f"🎮 Trivia points: <b>{trivia_pts}</b> (Rank {t_rank_str})\n"
+        f"🃏 Collection cards: <b>{col_count}</b>\n"
+        f"💰 RB Coins: <b>{coins:,}</b>",
+        parse_mode="HTML"
+    )
+
+
+async def mygifts(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+    uid  = user.id
+    try:
+        collection = db.get_collection(uid)
+        if not collection:
+            await update.message.reply_text(
+                "🎁 You have no gifts yet.\n\nPlay /cricket or /pick to earn character cards!"
+            )
+            return
+        # Show last 10 received as "gifts"
+        recent = collection[-10:]
+        lines  = []
+        for item in reversed(recent):
+            name   = item.get("item_name", "Unknown")
+            source = item.get("source", "?")
+            rarity = item.get("rarity", "")
+            lines.append(f"🎁 <b>{name}</b> [{source}] {rarity}")
+        await update.message.reply_text(
+            f"🎁 <b>Your Recent Gifts</b>\n━━━━━━━━━━━━━━━━\n\n" + "\n".join(lines),
+            parse_mode="HTML"
+        )
+    except Exception:
+        await update.message.reply_text("Could not fetch your gifts. Try /collection instead.")
+
+
+async def mytop(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+    uid  = user.id
+    name = user.first_name or user.username or f"User{uid}"
+    try:
+        coin_balance = db.add_rb_coins(uid, 0)
+        await update.message.reply_text(
+            f"📊 <b>{name}'s Global Rank</b>\n\n"
+            f"💰 RB Coins: <b>{coin_balance:,}</b>\n"
+            f"🎮 Use /profile for full stats in this group.\n"
+            f"🏆 Use /topgame for the game leaderboard.",
+            parse_mode="HTML"
+        )
+    except Exception:
+        await update.message.reply_text(
+            f"📊 <b>{name}'s Stats</b>\n\nUse /profile for your full stats.",
+            parse_mode="HTML"
+        )
+
+
+async def groupstats(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        member = await update.effective_chat.get_member(update.effective_user.id)
+        if member.status not in ("administrator", "creator"):
+            await update.message.reply_text("⚠️ This command is for admins only.")
+            return
+    except Exception:
+        pass
+
+    chat    = update.effective_chat
+    chat_id = chat.id
+
+    rows = db.get_ranking(chat_id, limit=1000)
+    total_members = len(rows)
+    total_msgs    = sum(r.get("message_count", 0) for r in rows)
+    top_user      = rows[0] if rows else None
+
+    score_rows = db.get_top_scores(chat_id, limit=10)
+    top_gamer  = score_rows[0] if score_rows else None
+
+    text = (
+        f"📊 <b>Group Stats: {chat.title}</b>\n"
+        f"━━━━━━━━━━━━━━━━\n\n"
+        f"👥 Tracked members: <b>{total_members:,}</b>\n"
+        f"💬 Total messages: <b>{total_msgs:,}</b>\n"
+    )
+    if top_user:
+        tname = top_user.get("first_name") or top_user.get("username") or "Unknown"
+        text += f"🏆 Top chatter: <b>{tname}</b> ({top_user.get('message_count', 0):,} msgs)\n"
+    if top_gamer:
+        gname = top_gamer.get("first_name") or top_gamer.get("username") or "Unknown"
+        text += f"🎮 Top gamer: <b>{gname}</b> ({top_gamer.get('count', 0)} pts)\n"
+    await update.message.reply_text(text, parse_mode="HTML")
+
+
+async def stophangman(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        member = await update.effective_chat.get_member(update.effective_user.id)
+        if member.status not in ("administrator", "creator"):
+            await update.message.reply_text("⚠️ Admins only.")
+            return
+    except Exception:
+        pass
+    from handlers import fun as fun_module
+    chat_id = update.effective_chat.id
+    if chat_id in fun_module.active_hangman:
+        del fun_module.active_hangman[chat_id]
+        await update.message.reply_text("✅ Hangman game stopped by admin.")
+    else:
+        await update.message.reply_text("No active hangman game in this chat.")
+
+
+async def settings(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        member = await update.effective_chat.get_member(update.effective_user.id)
+        if member.status not in ("administrator", "creator"):
+            await update.message.reply_text("⚠️ Admins only.")
+            return
+    except Exception:
+        pass
+    chat = update.effective_chat
+    try:
+        rules = db.get_rules(chat.id)
+    except Exception:
+        rules = None
+    try:
+        welcome = db.get_welcome(chat.id)
+    except Exception:
+        welcome = None
+    await update.message.reply_text(
+        f"⚙️ <b>Settings: {chat.title}</b>\n"
+        f"━━━━━━━━━━━━━━━━\n\n"
+        f"📋 Rules: {'✅ Set' if rules else '❌ Not set'}\n"
+        f"👋 Welcome: {'✅ Set' if welcome else '❌ Not set'}\n\n"
+        f"<b>Config commands:</b>\n"
+        f"/setrules — Set group rules\n"
+        f"/setwelcome — Set welcome message\n"
+        f"/setgoodbye — Set goodbye message\n"
+        f"/lock — Lock message types\n"
+        f"/slowmode [seconds] — Set slow mode",
+        parse_mode="HTML"
+    )
