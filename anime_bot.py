@@ -8,8 +8,8 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes
 
 # ===== CONFIG =====
-TOKEN = "8597735425:AAHFtN-41LMX61BfYhN6mOm7c2m8Ib_F_E0"
-OWNER_ID = 8407837644  # your Telegram ID
+TOKEN = "8971914166:AAGlQpNNDYuwF_W3WdW-g7K5wIQBYFTGebs"
+OWNER_ID = 8945491924  # your Telegram ID
 
 # ===== FILES =====
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
