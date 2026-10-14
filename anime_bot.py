@@ -8,7 +8,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes
 
 # ===== CONFIG =====
-TOKEN = "8971914166:AAGlQpNNDYuwF_W3WdW-g7K5wIQBYFTGebs"
+TOKEN = "8982757583:AAENPw4j4_GYA7yAOy0DTbhtlQd8C7iH1XQ"
 OWNER_ID = 8945491924  # your Telegram ID
 
 # ===== FILES =====
